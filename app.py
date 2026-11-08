@@ -100,4 +100,4 @@ if prompt := st.chat_input("Pose-moi une question !"):
         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
     except Exception as e:
-        st.error(fErreur de communication avec l'API Mistral : {e}")
+        st.error(f"Erreur de communication avec l'API Mistral : {e}")
