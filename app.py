@@ -1,10 +1,23 @@
 import streamlit as st
 from mistralai import Mistral
 
+st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🤖")
+
+# Vérification et initialisation sécurisée
+if "MISTRAL_API_KEY" not in st.secrets:
+    st.error("La clé API 'MISTRAL_API_KEY' est absente des Secrets Streamlit.")
+    st.stop()
+
+client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
+
 # Configuration de la page
-st.set_page_config(page_title="Tuteur Scolaire d'Edgar", page_icon="🎓")
-st.title("Tuteur Scolaire d'Edgar")
-st.write("Pose-moi tes questions, je t’aiderai à réfléchir sans donner les réponses !")
+# st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🎓")
+# st.title("Aide scolaire")
+# st.write("Pose-moi tes questions, je t’aiderai à réfléchir sans donner les réponses !")
+
+
+
+
 
 # Instructions de l'assistant (votre prompt reste inchangé)
 INSTRUCTIONS = """
@@ -60,15 +73,6 @@ Si Edgar insiste pour obtenir une réponse directe :
 
 Ton ton : Patient, bienveillant et motivant. Adapte-toi à son niveau et à son humeur.
 """
-
-
-# Récupération sécurisée de la clé API
-if "MISTRAL_API_KEY" not in st.secrets:
-    st.error("La clé API 'MISTRAL_API_KEY' est absente des Secrets Streamlit.")
-    st.stop()
-
-# Initialiser le client Mistral avec la clé API stockée dans les secrets
-client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
 
 
 # Initialiser l'historique des messages avec des dictionnaires standards
