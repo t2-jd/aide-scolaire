@@ -1,3 +1,4 @@
+import base64
 import streamlit as st
 from mistralai.client import Mistral
 
@@ -10,16 +11,7 @@ if "MISTRAL_API_KEY" not in st.secrets:
 
 client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
 
-# Configuration de la page
-# st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🎓")
-# st.title("Aide scolaire")
-# st.write("Pose-moi tes questions, je t’aiderai à réfléchir sans donner les réponses !")
-
-
-
-
-
-# Instructions de l'assistant (votre prompt reste inchangé)
+# Instructions de l'assistant
 INSTRUCTIONS = """
 Ton rôle :
 
@@ -74,30 +66,73 @@ Si Edgar insiste pour obtenir une réponse directe :
 Ton ton : Patient, bienveillant et motivant. Adapte-toi à son niveau et à son humeur.
 """
 
-
-# Initialiser l'historique des messages avec des dictionnaires standards
+# Initialiser l'historique des messages
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": INSTRUCTIONS}]
 
 # Afficher les messages de l'historique (en ignorant le message système à l'index 0)
 for message in st.session_state.messages[1:]:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if message.get("content"):
+            st.markdown(message["content"])
+        if message.get("files"):
+            for file in message["files"]:
+                st.image(file, width=300)
 
-# Champ de saisie pour l'utilisateur
-if prompt := st.chat_input("Pose-moi une question !"):
-    # Ajouter le message de l'utilisateur à l'historique
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# Fonction utilitaire pour convertir une image Streamlit en format lisible par l'API
+def file_to_data_uri(uploaded_file):
+    bytes_data = uploaded_file.getvalue()
+    base64_encoded = base64.b64encode(bytes_data).decode('utf-8')
+    return f"data:{uploaded_file.type};base64,{base64_encoded}"
 
-    # Afficher le message de l'utilisateur
+# Champ de saisie avec support des images/fichiers
+if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept_file=True, file_type=["jpg", "jpeg", "png"]):
+    user_text = prompt.text
+    uploaded_files = prompt.files
+    
+    # Enregistrement dans l'historique de l'interface
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": user_text, 
+        "files": uploaded_files
+    })
+
+    # Afficher le message de l'utilisateur dans le chat
     with st.chat_message("user"):
-        st.markdown(prompt)
+        if user_text:
+            st.write(user_text)
+        if uploaded_files:
+            for file in uploaded_files:
+                st.image(file, width=300)
+
+    # Préparation de l'historique pour l'API Mistral (conversion des fichiers en Base64)
+    api_messages = []
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            content = []
+            if msg.get("content"):
+                content.append({"type": "text", "text": msg["content"]})
+            if msg.get("files"):
+                for file in msg["files"]:
+                    data_uri = file_to_data_uri(file)
+                    content.append({"type": "image_url", "image_url": data_uri})
+            
+            api_messages.append({
+                "role": "user", 
+                "content": content if (msg.get("files") and len(content) > 1) else (msg.get("content") or "")
+            })
+        else:
+            api_messages.append({"role": "assistant", "content": msg["content"]})
 
     # Obtenir la réponse de Mistral
     try:
+        # Choix dynamique du modèle (Pixtral pour les images, Mistral Small pour le texte seul)
+        has_images = any(msg.get("files") for msg in st.session_state.messages)
+        model_to_use = "pixtral-12b-2409" if has_images else "mistral-small-latest"
+
         response = client.chat.complete(
-            model="mistral-small-latest",  # Modèle moderne et adapté
-            messages=st.session_state.messages,
+            model=model_to_use, 
+            messages=api_messages,
             temperature=0.3
         )
         
