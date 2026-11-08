@@ -1,13 +1,12 @@
 import streamlit as st
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
 
 # Configuration de la page
 st.set_page_config(page_title="Tuteur Scolaire d'Edgar", page_icon="🎓")
 st.title("Tuteur Scolaire d'Edgar")
 st.write("Pose-moi tes questions, je t’aiderai à réfléchir sans donner les réponses !")
 
-# Instructions de l'assistant (copie-colle tes règles ici)
+# Instructions de l'assistant (votre prompt reste inchangé)
 INSTRUCTIONS = """
 Ton rôle :
 
@@ -63,36 +62,42 @@ Ton ton : Patient, bienveillant et motivant. Adapte-toi à son niveau et à son 
 """
 
 # Initialiser le client Mistral avec la clé API stockée dans les secrets
-client = MistralClient(api_key=st.secrets["MISTRAL_API_KEY"])
+client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
 
-# Initialiser l'historique des messages
+# Initialiser l'historique des messages avec des dictionnaires standards
 if "messages" not in st.session_state:
-    st.session_state.messages = [ChatMessage(role="system", content=INSTRUCTIONS)]
+    st.session_state.messages = [{"role": "system", "content": INSTRUCTIONS}]
 
-# Afficher les messages
+# Afficher les messages de l'historique (en ignorant le message système à l'index 0)
 for message in st.session_state.messages[1:]:
-    with st.chat_message(message.role):
-        st.markdown(message.content)
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 # Champ de saisie pour l'utilisateur
 if prompt := st.chat_input("Pose-moi une question !"):
     # Ajouter le message de l'utilisateur à l'historique
-    st.session_state.messages.append(ChatMessage(role="user", content=prompt))
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
     # Afficher le message de l'utilisateur
     with st.chat_message("user"):
         st.markdown(prompt)
 
     # Obtenir la réponse de Mistral
-    response = client.chat(
-        model="mistral-tiny",  # Gratuit et suffisant pour ton besoin
-        messages=st.session_state.messages,
-        temperature=0.3
-    )
+    try:
+        response = client.chat.complete(
+            model="mistral-small-latest",  # Modèle moderne et adapté
+            messages=st.session_state.messages,
+            temperature=0.3
+        )
+        
+        assistant_response = response.choices[0].message.content
 
-    # Afficher la réponse de l'assistant
-    with st.chat_message("assistant"):
-        st.markdown(response.choices[0].message.content)
+        # Afficher la réponse de l'assistant
+        with st.chat_message("assistant"):
+            st.markdown(assistant_response)
 
-    # Ajouter la réponse à l'historique
-    st.session_state.messages.append(ChatMessage(role="assistant", content=response.choices[0].message.content))
+        # Ajouter la réponse de l'assistant à l'historique
+        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+
+    except Exception as e:
+        st.error(fErreur de communication avec l'API Mistral : {e}")
