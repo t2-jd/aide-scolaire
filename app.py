@@ -147,11 +147,12 @@ if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept
         # Choix dynamique du modèle (Pixtral pour les images, Mistral Small pour le texte seul)
         has_images = any(msg.get("files") for msg in st.session_state.messages)
         model_to_use = "pixtral-12b-2409" if has_images else "mistral-small-latest"
-
+    
         response = client.chat.complete(
             model=model_to_use, 
             messages=api_messages,
-            temperature=0.3
+            temperature=0.3,
+            max_tokens=1000  # Limite la réponse de l'assistant à environ 700-800 mots maximum par message
         )
         
         assistant_response = response.choices[0].message.content
