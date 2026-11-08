@@ -61,8 +61,15 @@ Si Edgar insiste pour obtenir une réponse directe :
 Ton ton : Patient, bienveillant et motivant. Adapte-toi à son niveau et à son humeur.
 """
 
+
+# Récupération sécurisée de la clé API
+if "MISTRAL_API_KEY" not in st.secrets:
+    st.error("La clé API 'MISTRAL_API_KEY' est absente des Secrets Streamlit.")
+    st.stop()
+
 # Initialiser le client Mistral avec la clé API stockée dans les secrets
 client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
+
 
 # Initialiser l'historique des messages avec des dictionnaires standards
 if "messages" not in st.session_state:
