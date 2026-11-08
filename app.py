@@ -10,7 +10,7 @@ if "password_correct" not in st.session_state:
 
 if not st.session_state.password_correct:
     st.title("🔒 Accès restreint - Le Prof perso d'Edgar")
-    pwd_input = st.text_input("Entre le mot de passe pour accéder au tuteur :", type="password")
+    pwd_input = st.text_input("Entre ton mot de passe pour accéder à ton Prof :", type="password")
     if st.button("Valider"):
         # Récupère le mot de passe depuis les secrets Streamlit (ou utilise "edgar2026" par défaut)
         correct_password = st.secrets.get("APP_PASSWORD")
