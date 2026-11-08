@@ -1,5 +1,5 @@
 import streamlit as st
-from mistralai import Mistral
+from mistralai.client import Mistral
 
 st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🤖")
 
