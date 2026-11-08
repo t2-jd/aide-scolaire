@@ -4,6 +4,24 @@ from mistralai.client import Mistral
 
 st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🤖")
 
+# --- PROTECTION PAR MOT DE PASSE ---
+if "password_correct" not in st.session_state:
+    st.session_state.password_correct = False
+
+if not st.session_state.password_correct:
+    st.title("🔒 Accès restreint - Le Prof perso d'Edgar")
+    pwd_input = st.text_input("Entre le mot de passe pour accéder au tuteur :", type="password")
+    if st.button("Valider"):
+        # Récupère le mot de passe depuis les secrets Streamlit (ou utilise "edgar2026" par défaut)
+        correct_password = st.secrets.get("APP_PASSWORD")
+        if pwd_input == correct_password:
+            st.session_state.password_correct = True
+            st.rerun()
+        else:
+            st.error("Mot de passe incorrect.")
+    st.stop()  # Bloque le chargement du reste de l'application tant que le mot de passe n'est pas validé
+
+
 # Vérification et initialisation sécurisée
 if "MISTRAL_API_KEY" not in st.secrets:
     st.error("La clé API 'MISTRAL_API_KEY' est absente des Secrets Streamlit.")
