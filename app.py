@@ -26,7 +26,7 @@ def lecteur_vocal(texte_a_lire, key="speech"):
             window.speechSynthesis.cancel();
             var msg = new SpeechSynthesisUtterance("{texte_js}");
             msg.lang = 'fr-FR';
-            msg.rate = 1.2;
+            msg.rate = 2;
             window.speechSynthesis.speak(msg);
         }}
 
