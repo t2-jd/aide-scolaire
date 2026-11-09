@@ -1,8 +1,41 @@
 import base64
 import streamlit as st
+import streamlit.components.v1 as components
 from mistralai.client import Mistral
 
 st.set_page_config(page_title="Le Prof perso d'Edgar", page_icon="🤖")
+
+# --- FONCTION LECTEUR VOCAL CONTROLABLE ---
+def lecteur_vocal(texte_a_lire, key="speech"):
+    # Nettoyage du markdown et des sauts de ligne pour JS
+    texte_propre = texte_a_lire.replace("*", "").replace("#", "").replace("`", "").replace("\n", " ")
+    texte_js = texte_propre.replace('"', '\\"').replace("'", "\\'")
+
+    html_code = f"""
+    <div style="margin-top: 5px; margin-bottom: 10px;">
+        <button onclick="playSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f2f6; cursor: pointer; margin-right: 5px;">
+            🔊 Écouter
+        </button>
+        <button onclick="stopSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #ffe6e6; cursor: pointer; color: #cc0000;">
+            ⏹️ Stopper
+        </button>
+    </div>
+
+    <script>
+        function playSpeech_{key}() {{
+            window.speechSynthesis.cancel();
+            var msg = new SpeechSynthesisUtterance("{texte_js}");
+            msg.lang = 'fr-FR';
+            msg.rate = 1.0;
+            window.speechSynthesis.speak(msg);
+        }}
+
+        function stopSpeech_{key}() {{
+            window.speechSynthesis.cancel();
+        }}
+    </script>
+    """
+    components.html(html_code, height=45)
 
 # --- PROTECTION PAR MOT DE PASSE ---
 if "password_correct" not in st.session_state:
@@ -10,26 +43,24 @@ if "password_correct" not in st.session_state:
 
 if not st.session_state.password_correct:
     st.title("🔒 Accès restreint - Le Prof perso d'Edgar")
-    pwd_input = st.text_input("Entre ton mot de passe pour accéder à ton Prof :", type="password")
+    pwd_input = st.text_input("Entre le mot de passe pour accéder au tuteur :", type="password")
     if st.button("Valider"):
-        # Récupère le mot de passe depuis les secrets Streamlit (ou utilise "edgar2026" par défaut)
-        correct_password = st.secrets.get("APP_PASSWORD")
+        correct_password = st.secrets.get("APP_PASSWORD", "edgar2026")
         if pwd_input == correct_password:
             st.session_state.password_correct = True
             st.rerun()
         else:
             st.error("Mot de passe incorrect.")
-    st.stop()  # Bloque le chargement du reste de l'application tant que le mot de passe n'est pas validé
+    st.stop()
 
-
-# Vérification et initialisation sécurisée
+# --- VÉRIFICATION DE LA CLÉ API ---
 if "MISTRAL_API_KEY" not in st.secrets:
     st.error("La clé API 'MISTRAL_API_KEY' est absente des Secrets Streamlit.")
     st.stop()
 
 client = Mistral(api_key=st.secrets["MISTRAL_API_KEY"])
 
-# Instructions de l'assistant
+# --- INSTRUCTIONS PÉDAGOGIQUES ---
 INSTRUCTIONS = """
 Ton rôle :
 
@@ -84,38 +115,38 @@ Si Edgar insiste pour obtenir une réponse directe :
 Ton ton : Patient, bienveillant et motivant. Adapte-toi à son niveau et à son humeur.
 """
 
-# Initialiser l'historique des messages
+# --- INITIALISATION DE L'HISTORIQUE ---
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": INSTRUCTIONS}]
 
-# Afficher les messages de l'historique (en ignorant le message système à l'index 0)
-for message in st.session_state.messages[1:]:
+# Affichage de l'historique des messages
+for idx, message in enumerate(st.session_state.messages[1:]):
     with st.chat_message(message["role"]):
         if message.get("content"):
             st.markdown(message["content"])
+            if message["role"] == "assistant":
+                lecteur_vocal(message["content"], key=f"hist_{idx}")
         if message.get("files"):
             for file in message["files"]:
                 st.image(file, width=300)
 
-# Fonction utilitaire pour convertir une image Streamlit en format lisible par l'API
+# Encodage Image Base64
 def file_to_data_uri(uploaded_file):
     bytes_data = uploaded_file.getvalue()
     base64_encoded = base64.b64encode(bytes_data).decode('utf-8')
     return f"data:{uploaded_file.type};base64,{base64_encoded}"
 
-# Champ de saisie avec support des images/fichiers
+# --- SAISIE ET CHAT ---
 if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept_file=True, file_type=["jpg", "jpeg", "png"]):
     user_text = prompt.text
     uploaded_files = prompt.files
     
-    # Enregistrement dans l'historique de l'interface
     st.session_state.messages.append({
         "role": "user", 
         "content": user_text, 
         "files": uploaded_files
     })
 
-    # Afficher le message de l'utilisateur dans le chat
     with st.chat_message("user"):
         if user_text:
             st.write(user_text)
@@ -123,7 +154,6 @@ if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept
             for file in uploaded_files:
                 st.image(file, width=300)
 
-    # Préparation de l'historique pour l'API Mistral (conversion des fichiers en Base64)
     api_messages = []
     for msg in st.session_state.messages:
         if msg["role"] == "user":
@@ -142,69 +172,23 @@ if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept
         else:
             api_messages.append({"role": "assistant", "content": msg["content"]})
 
-    # Obtenir la réponse de Mistral
+    # Bloc d'appel API sécurisé
     try:
-        # Choix dynamique du modèle (Pixtral pour les images, Mistral Small pour le texte seul)
         has_images = any(msg.get("files") for msg in st.session_state.messages)
         model_to_use = "pixtral-12b-2409" if has_images else "mistral-small-latest"
-    
+
         response = client.chat.complete(
             model=model_to_use, 
             messages=api_messages,
-            temperature=0.3,
-            max_tokens=1000  # Limite la réponse de l'assistant à environ 700-800 mots maximum par message
+            temperature=0.3
         )
         
         assistant_response = response.choices[0].message.content
 
-        # Afficher la réponse de l'assistant
         with st.chat_message("assistant"):
             st.markdown(assistant_response)
-            # Ajoute les boutons Écouter / Stopper sous la réponse
-            lecteur_vocal(assistant_response, key=f"voice_{len(st.session_state.messages)}")
-        
-        import streamlit as st
-import streamlit.components.v1 as components
+            lecteur_vocal(assistant_response, key=f"new_{len(st.session_state.messages)}")
 
-def lecteur_vocal(texte_a_lire, key="speech"):
-    # Nettoyage rapide du markdown pour éviter que la voix ne lise des étoiles ou des dièses
-    texte_propre = texte_a_lire.replace("*", "").replace("#", "").replace("`", "").replace("\n", " ")
-    # Échappement des guillemets pour éviter les erreurs JavaScript
-    texte_js = texte_propre.replace('"', '\\"').replace("'", "\\'")
-
-    html_code = f"""
-    <div style="margin-top: 5px; margin-bottom: 10px;">
-        <button onclick="playSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f2f6; cursor: pointer; margin-right: 5px;">
-            🔊 Écouter
-        </button>
-        <button onclick="stopSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #ffe6e6; cursor: pointer; color: #cc0000;">
-            ⏹️ Stopper
-        </button>
-    </div>
-
-    <script>
-        function playSpeech_{key}() {{
-            // Arrête toute lecture en cours avant d'en lancer une nouvelle
-            window.speechSynthesis.cancel();
-            
-            var msg = new SpeechSynthesisUtterance("{texte_js}");
-            msg.lang = 'fr-FR';
-            msg.rate = 1.0; // Vous pouvez accélérer légèrement la voix ici (ex: 1.1 ou 1.2)
-            
-            window.speechSynthesis.speak(msg);
-        }}
-
-        function stopSpeech_{key}() {{
-            // Coupe immédiatement la parole
-            window.speechSynthesis.cancel();
-        }}
-    </script>
-    """
-    components.html(html_code, height=45)
-        
- 
-
-        # Ajouter la réponse de l'assistant à l'historique
         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
     except Exception as e:
