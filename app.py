@@ -26,7 +26,7 @@ def lecteur_vocal(texte_a_lire, key="speech"):
             window.speechSynthesis.cancel();
             var msg = new SpeechSynthesisUtterance("{texte_js}");
             msg.lang = 'fr-FR';
-            msg.rate = 1.3;
+            msg.rate = 1.6;
 
             // Récupère la liste des voix du navigateur et cherche une voix Google française
             var voices = window.speechSynthesis.getVoices();
