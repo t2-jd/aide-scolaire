@@ -160,6 +160,49 @@ if prompt := st.chat_input("Pose-moi une question ou joins une photo...", accept
         # Afficher la réponse de l'assistant
         with st.chat_message("assistant"):
             st.markdown(assistant_response)
+            # Ajoute les boutons Écouter / Stopper sous la réponse
+            lecteur_vocal(assistant_response, key=f"voice_{len(st.session_state.messages)}")
+        
+        import streamlit as st
+import streamlit.components.v1 as components
+
+def lecteur_vocal(texte_a_lire, key="speech"):
+    # Nettoyage rapide du markdown pour éviter que la voix ne lise des étoiles ou des dièses
+    texte_propre = texte_a_lire.replace("*", "").replace("#", "").replace("`", "").replace("\n", " ")
+    # Échappement des guillemets pour éviter les erreurs JavaScript
+    texte_js = texte_propre.replace('"', '\\"').replace("'", "\\'")
+
+    html_code = f"""
+    <div style="margin-top: 5px; margin-bottom: 10px;">
+        <button onclick="playSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #f0f2f6; cursor: pointer; margin-right: 5px;">
+            🔊 Écouter
+        </button>
+        <button onclick="stopSpeech_{key}()" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; background-color: #ffe6e6; cursor: pointer; color: #cc0000;">
+            ⏹️ Stopper
+        </button>
+    </div>
+
+    <script>
+        function playSpeech_{key}() {{
+            // Arrête toute lecture en cours avant d'en lancer une nouvelle
+            window.speechSynthesis.cancel();
+            
+            var msg = new SpeechSynthesisUtterance("{texte_js}");
+            msg.lang = 'fr-FR';
+            msg.rate = 1.0; // Vous pouvez accélérer légèrement la voix ici (ex: 1.1 ou 1.2)
+            
+            window.speechSynthesis.speak(msg);
+        }}
+
+        function stopSpeech_{key}() {{
+            // Coupe immédiatement la parole
+            window.speechSynthesis.cancel();
+        }}
+    </script>
+    """
+    components.html(html_code, height=45)
+        
+ 
 
         # Ajouter la réponse de l'assistant à l'historique
         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
