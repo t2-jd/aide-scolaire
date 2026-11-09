@@ -1,2 +1,0 @@
-streamlit
-mistralai>=1.0.0
