@@ -26,7 +26,22 @@ def lecteur_vocal(texte_a_lire, key="speech"):
             window.speechSynthesis.cancel();
             var msg = new SpeechSynthesisUtterance("{texte_js}");
             msg.lang = 'fr-FR';
-            msg.rate = 2;
+            msg.rate = 1.3;
+
+            // Récupère la liste des voix du navigateur et cherche une voix Google française
+            var voices = window.speechSynthesis.getVoices();
+            var googleVoice = voices.find(v => v.lang.startsWith('fr') && v.name.toLowerCase().includes('google'));
+            
+            if (googleVoice) {{
+                msg.voice = googleVoice;
+            }} else {{
+                // Fallback sur n'importe quelle autre voix française disponible
+                var frVoice = voices.find(v => v.lang.startsWith('fr'));
+                if (frVoice) {{
+                    msg.voice = frVoice;
+                }}
+            }}
+
             window.speechSynthesis.speak(msg);
         }}
 
